@@ -50,6 +50,7 @@ class BookSubscriber:
         for message in self.pubsub.listen():
             if message['type'] == 'message':
                 print(f"Commande reçue : {message['data']}")
+            break
 
 
     def find_book(self,book_title):
@@ -72,9 +73,30 @@ class BookSubscriber:
         # Check if book is available
         if self.redis_client.exists(self.books_key,book_title):
 
-            print("This book is available")
 
+            quantity = int(self.redis_client.hgetall(book_title)["number"])
+            if quantity >0:
+                self.redis_client.hset(book_title,'number', str(quantity-1))
+                print("This book is available")
+            else:
+                print("This book is not available")
 
-            #Boorow the book
+            #Borrow the book
         else:
             print("This book is not available")
+
+    def get_all_books(self):
+            '''
+            Show all books in base
+            '''
+            books = {}
+            book_keys = self.redis_client.keys(f'*')
+            for key in book_keys:
+
+
+                print(key)
+                book_title = key.split(':')[-1]
+                book_data = self.redis_client.hgetall(key)
+
+                books[book_title] = book_data
+            print(books)
