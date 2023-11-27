@@ -6,10 +6,14 @@ import redis
 #
 #       value : {Title, author, number, language, year }
 
+r = redis.StrictRedis(host='localhost', port=6379, decode_responses=True))
+p = r.pubsub()
 class BookPublisher:
-    def __init__(self,channel):
-        self.redis_client = redis.StrictRedis(host='localhost', port=6379, decode_responses=True)
+    def __init__(self,pubsub,channel):
+
         self.channel = channel
+        self.pubsub=pubsub
+        self.pubsub.subscribe(self.channel)
         self.books_key = 'livres'
 
     def add_book(self, book_title,description):
@@ -34,7 +38,7 @@ class BookPublisher:
 
 
 class BookSubscriber:
-    def __init__(self,channel):
+    def __init__(self,pubsub,channel):
         self.redis_client = redis.StrictRedis(host='localhost', port=6379, decode_responses=True)
         self.channel = channel
         self.pubsub = self.redis_client.pubsub()
