@@ -16,32 +16,38 @@ class BookPublisher:
         self.pubsub.subscribe(self.channel)
         self.books_key = channel
 
-    def add_book(self, book_title,description):
+    def add_book(self, ISBN,channel,book_title,author,language,year):
         '''
         Ajoute un livre et le dit ans le channel associé
         '''
         message = f"New book added : {book_title}"
-        self.redis_client.publish(description["channel"], message)
-
+        self.redis_client.publish(channel, message)
+        description = {'Title':book_title,'channel':channel,'author':author,'number':1,'language':language,'year':year}
         print(message)
 
         #Check if the book is already in the base
         if self.redis_client.exists(self.books_key,book_title):
             print("This book already exists")
-            quantity = self.redis_client.hgetall(book_title)["number"]
-            self.redis_client.hset(book_title,'number', str(int(quantity)+1))
+            quantity = self.redis_client.hgetall(ISBN)["number"]
+            self.redis_client.hset(ISBN,'number', str(int(quantity)+1))
         else:
             print("This book is new")
-            self.redis_client.hset(book_title,mapping=description)
+            self.redis_client.hset(ISBN,mapping=description)
 
-    def delete_book(self,book_title):
+    def delete_book(self,ISBN):
         '''
         Delete a book from the library
         '''
-        self.redis_client.delete(book_title)
-        message = f"Book deleted: {book_title}"
-        self.redis_client.publish(self.channel, message)
-        print("Book",book_title,"deleted.")
+        try:
+            self.redis_client.delete(ISBN)
+            message = f"Book deleted: {ISBN}"
+            self.redis_client.publish(self.channel, message)
+            print("Book",ISBN,"deleted.")
+
+
+
+        except:
+            print("This book is not in our library")
 
 
 class BookSubscriber:
@@ -72,46 +78,50 @@ class BookSubscriber:
             else:
                 print("Nothing new")
 
-    # def listen_for_books(self):
-    #     '''
-    #     Liste des livres disponibles dans le channel
-    #     '''
-    #     for message in self.pubsub.listen():
-    #         if message['type'] == 'message':
-    #             print(f"Commande received : {message['data']}")
-    #             break
-    #         else:
-    #             print(f"Nothing changed")
-    #             break
 
 
-
-
-    def find_book(self,book_title):
+    def find_book_ISBN(self,ISBN):
         '''
-        Book research
+        Book research with ISBN
         '''
         try:
-            description = self.redis_client.hgetall(book_title)
+            description = self.redis_client.hgetall(ISBN)
             if description is not None:
-                print(book_title, " : ", description)
+                print(ISBN, " : ", description)
             else:
                 print("This book is not in our library")
         except:
             print("This book is not in our library")
 
-    def borrow_a_book(self,book_title):
+    def find_book_title(self,book_title):
+        '''
+        Book research with title
+        '''
+        book_keys = self.redis_client.keys(f'*')
+        for key in book_keys:
+            ISBN = key.split(':')[-1]
+            book_data = self.redis_client.hgetall(key)
+            if book_data['Title']==book_title:
+                print(key,book_data)
+        print("End of search")
+    def show_books(self):
+        print(self.books)
+
+
+
+    def borrow_a_book(self,ISBN):
         '''
         Borrow a book if it exists
         '''
         # Check if book is available
-        if self.redis_client.exists(self.books_key,book_title):
+        if self.redis_client.exists(self.books_key,ISBN):
 
 
-            quantity = int(self.redis_client.hgetall(book_title)["number"])
+            quantity = int(self.redis_client.hgetall(ISBN)["number"])
             if quantity >0:
-                self.redis_client.hset(book_title,'number', str(quantity-1))
+                self.redis_client.hset(ISBN,'number', str(quantity-1))
                 print("This book is available")
+                self.books.append(ISBN)
             else:
                 print("This book is not available")
 
@@ -119,9 +129,12 @@ class BookSubscriber:
         else:
             print("This book is not available")
 
-    def return_a_book(self,book_title):
-        if book_title in self.books:
-            self.redis_client.hset(book_title,'number', str(int(quantity)-1))
+    def return_a_book(self,ISBN):
+        if ISBN in self.books:
+            quantity = self.redis_client.hgetall(ISBN)["number"]
+            self.redis_client.hset(ISBN,'number', str(int(quantity)+1))
+            self.books.remove(ISBN)
+            print("You returned this book")
         else:
             print("You don't have this book")
 
@@ -137,9 +150,9 @@ class BookSubscriber:
 
 
 
-                    book_title = key.split(':')[-1]
+                    ISBN = key.split(':')[-1]
                     book_data = self.redis_client.hgetall(key)
-                    if book_data['channel'] == self.channel:
 
-                        books[book_title] = book_data
+
+                    books[ISBN] = book_data
             print(books)
