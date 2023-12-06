@@ -122,6 +122,7 @@ class BookSubscriber:
             quantity = int(self.redis_client.hgetall(ISBN)["number"])
             if quantity >0:
                 self.redis_client.hset(ISBN,'number', str(quantity-1))
+                self.redis_client.expire(ISBN, expiration_time_seconds)
                 print("This book is available")
                 self.books.append(ISBN)
             else:
@@ -135,6 +136,7 @@ class BookSubscriber:
         if ISBN in self.books:
             quantity = self.redis_client.hgetall(ISBN)["number"]
             self.redis_client.hset(ISBN,'number', str(int(quantity)+1))
+            self.redis_client.expire(ISBN, expiration_time_seconds)
             self.books.remove(ISBN)
             print("You returned this book")
         else:
