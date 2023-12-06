@@ -7,7 +7,7 @@ import redis
 #       value : {Title,channel, author, number, language, year }
 
 
-
+expiration_time_seconds =15
 class BookPublisher:
     def __init__(self,channel):
         self.redis_client = redis.StrictRedis(host='localhost', port=6379, decode_responses=True)
@@ -30,9 +30,11 @@ class BookPublisher:
             print("This book already exists")
             quantity = self.redis_client.hgetall(ISBN)["number"]
             self.redis_client.hset(ISBN,'number', str(int(quantity)+1))
+            self.redis_client.expire(ISBN, expiration_time_seconds)
         else:
             print("This book is new")
             self.redis_client.hset(ISBN,mapping=description)
+            self.redis_client.expire(ISBN, expiration_time_seconds)
 
     def delete_book(self,ISBN):
         '''
