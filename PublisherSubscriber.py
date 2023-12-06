@@ -6,8 +6,10 @@ import redis
 #
 #       value : {Title,channel, author, number, language, year }
 
+#Change this to change expiration time
+expiration_time_seconds =150
 
-expiration_time_seconds =15
+###Class of publisher
 class BookPublisher:
     def __init__(self,channel):
         self.redis_client = redis.StrictRedis(host='localhost', port=6379, decode_responses=True)
@@ -16,17 +18,17 @@ class BookPublisher:
         self.pubsub.subscribe(self.channel)
         self.books_key = channel
 
-    def add_book(self, ISBN,channel,book_title,author,language,year):
+    def add_book(self, ISBN,channel,book_title,author,language,year,number=1):
         '''
-        Ajoute un livre et le dit ans le channel associé
+        Add a book and publish a message in the correct channel
         '''
         message = f"New book added : {book_title}"
-        self.redis_client.publish(channel, message)
-        description = {'Title':book_title,'channel':channel,'author':author,'number':1,'language':language,'year':year}
+        self.redis_client.publish(self.channel, message)
+        description = {'Title':book_title,'channel':channel,'author':author,'number':number,'language':language,'year':year}
         print(message)
 
         #Check if the book is already in the base
-        if self.redis_client.exists(self.books_key,book_title):
+        if self.redis_client.exists(self.books_key,ISBN):
             print("This book already exists")
             quantity = self.redis_client.hgetall(ISBN)["number"]
             self.redis_client.hset(ISBN,'number', str(int(quantity)+1))
@@ -46,27 +48,23 @@ class BookPublisher:
             self.redis_client.publish(self.channel, message)
             print("Book",ISBN,"deleted.")
 
-
-
         except:
             print("This book is not in our library")
 
-
+###Class of Subscriber
 class BookSubscriber:
     def __init__(self,channel):
         self.redis_client = redis.StrictRedis(host='localhost', port=6379, decode_responses=True)
-        self.channel = channel
+        self.channels = [channel]
         self.pubsub = self.redis_client.pubsub()
-        self.pubsub.subscribe(self.channel)
+        self.pubsub.subscribe(channel)
         self.books_key = channel
         self.books=[]
 
 
-
-
     def listen_for_news(self):
         '''
-        Liste des livres disponibles dans le channel
+        Listen if something change in the channel
         '''
 
         message = self.pubsub.get_message()
@@ -75,10 +73,11 @@ class BookSubscriber:
         else:
             channel = message['channel']
             data = message['data']
-            if channel == self.channel and data!=1:
+            if channel in self.channels and data!=1:
                 print(data)
             else:
                 print("Nothing new")
+
 
 
 
@@ -106,8 +105,19 @@ class BookSubscriber:
             if book_data['Title']==book_title:
                 print(key,book_data)
         print("End of search")
+
     def show_books(self):
+        '''
+        Show the books that the subscriber has borrowed
+        '''
         print(self.books)
+
+    def subsribe_to_channel(self,channel):
+        '''
+        Enable to subscribe to a new channel
+        '''
+        self.pubsub.subscribe(channel)
+        self.channels.append(channel)
 
 
 
@@ -133,12 +143,19 @@ class BookSubscriber:
             print("This book is not available")
 
     def return_a_book(self,ISBN):
+        '''
+        Return a book
+        '''
         if ISBN in self.books:
-            quantity = self.redis_client.hgetall(ISBN)["number"]
-            self.redis_client.hset(ISBN,'number', str(int(quantity)+1))
-            self.redis_client.expire(ISBN, expiration_time_seconds)
-            self.books.remove(ISBN)
-            print("You returned this book")
+
+            try:
+                quantity = self.redis_client.hgetall(ISBN)["number"]
+                self.redis_client.hset(ISBN,'number', str(int(quantity)+1))
+                self.redis_client.expire(ISBN, expiration_time_seconds)
+                self.books.remove(ISBN)
+                print("You returned this book")
+            except:
+                print("We no longer deal with this book. You can keep it !")
         else:
             print("You don't have this book")
 
