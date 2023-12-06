@@ -7,7 +7,7 @@ import redis
 #       value : {Title,channel, author, number, language, year }
 
 #Change this to change expiration time
-expiration_time_seconds =150
+expiration_time_seconds =1500
 
 ###Class of publisher
 class BookPublisher:
