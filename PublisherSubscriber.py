@@ -112,7 +112,7 @@ class BookSubscriber:
         '''
         print(self.books)
 
-    def subsribe_to_channel(self,channel):
+    def subsrcibe_to_channel(self,channel):
         '''
         Enable to subscribe to a new channel
         '''
