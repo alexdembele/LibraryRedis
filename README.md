@@ -4,3 +4,5 @@
 
  Le but est de créer un site pour une librairie où l'on peux emprunter et déposer des livres. 
  Il y a un système de publisher/subscriber.
+
+ La gestion se fait en ligne de commande dans un terminal python.
